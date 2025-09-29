@@ -1,0 +1,65 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Conecta tu Google con Xally</title>
+</head>
+<body>
+  <h1>Conecta tu Google con Xally</h1>
+  <button id="login">Continuar con Google</button>
+
+  <!-- Librería Supabase -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    // 🔑 Configura estos valores con los tuyos
+    const SUPABASE_URL = "https://autgovahferepmixjlrd.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dGdvdmFoZmVyZXBtaXhqbHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MDU1MzQsImV4cCI6MjA3NDM4MTUzNH0.0nyTr8C90jUV4-EQxWXCL83EFaSszxg2h0p7vCwyUDU";
+    const API_BASE = "https://tu-api.repl.co"; // URL pública de tu API en Replit
+    const AGENT_TOOL_SECRET = "MI_SUPER_SECRET_123"; // igual que en tu backend
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // Capturar discord_id de la URL
+    const url = new URL(window.location.href);
+    const discord_id = url.searchParams.get("discord_id");
+
+    // Login con Google
+    document.getElementById("login").onclick = async () => {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          scopes: "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file",
+          queryParams: { access_type: "offline", prompt: "consent" },
+          redirectTo: "https://xally-login.netlify.app" // 👈 tu dominio público de Netlify
+        }
+      });
+      if (error) {
+        alert("Error en login: " + error.message);
+        console.error(error);
+      }
+    };
+
+    // Escuchar sesión después de login
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { id, email } = session.user;
+        try {
+          const res = await fetch(`${API_BASE}/link_discord`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-agent-key": AGENT_TOOL_SECRET
+            },
+            body: JSON.stringify({ user_id: id, email, discord_id })
+          });
+          if (!res.ok) throw new Error("Error en backend: " + res.status);
+          document.body.innerHTML = "<h2>¡Listo! Vuelve a Discord 😎</h2>";
+        } catch (err) {
+          alert("Error al conectar con backend: " + err.message);
+          console.error(err);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
